@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from schemas.response_schemas import RepoActivityResponse, RepoResponse
@@ -13,14 +13,18 @@ router = APIRouter()
 работы RepoService
 """
 
-
 @router.get(
     "/top100",
     response_model=List[RepoResponse],
     response_description="List of top 100 repositories",
 )
-async def get_top100(repo_service: RepoService = Depends(get_repo_service)):
-    return await repo_service.get_top100()
+async def get_top100(
+    sort_by: Optional[str] = Query(None, description="Field to sort by"),
+    sort_order: Optional[str] = Query("asc", description="Sort order: asc or desc"),
+    repo_service: RepoService = Depends(get_repo_service)
+):
+    return await repo_service.get_top100(sort_by=sort_by, sort_order=sort_order)
+
 
 
 @router.get(

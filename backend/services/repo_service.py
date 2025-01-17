@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 
 import aiohttp
 from core.settings import settings
@@ -40,9 +40,9 @@ class RepoService:
         self.gh_auth_token = gh_auth_token
         self.gh_base_url = gh_base_url
 
-    async def get_top100(self) -> List[Dict]:
+    async def get_top100(self, sort_by: Optional[str] = None, sort_order: str = "asc") -> List[Dict]:
         try:
-            return await self.storage_handler.get_top100()
+            return await self.storage_handler.get_top100(sort_by=sort_by, sort_order=sort_order)
         except Exception as e:
             logging.error(f"Error in get_top100: {e}")
             raise RepoServiceExceptions.InternalRepoServiceException()

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from psycopg2.extensions import connection
 
@@ -25,5 +25,5 @@ class AbstractDatabase(ABC):
 
 class AbstractRepoStorage(ABC):
     @abstractmethod
-    async def get_top100(self) -> List[Dict]:
+    async def get_top100(self, sort_by: Optional[str] = None, sort_order: str = "asc") -> List[Dict]:
         pass

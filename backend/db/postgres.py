@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from core.settings import settings
 from db.abc_db import AbstractDatabase, AbstractRepoStorage
@@ -45,13 +45,25 @@ class PostgresRepoStorage(AbstractRepoStorage):
         self._db = db
         self.sql_queries = SqlQueries
 
-    async def get_top100(self) -> List[Dict]:
+    async def get_top100(self, sort_by: Optional[str] = None, sort_order: str = "asc") -> List[Dict]:
         connection = self._db.get_connection()
         try:
             cursor = connection.cursor()
-            cursor.execute(self.sql_queries.GET_TOP100.value)
+            query = self.sql_queries.GET_TOP100.value
+
+            valid_fields = [
+                "repo", "owner", "position_cur", "position_prev",
+                "stars", "watchers", "forks", "open_issues", "language"
+            ]
+
+            if sort_by and sort_by in valid_fields:
+                order = "ASC" if sort_order.lower() == "asc" else "DESC"
+                query = f"SELECT * FROM ({query.strip().rstrip(';')}) AS top_repos ORDER BY {sort_by} {order}"
+
+            cursor.execute(query)
             repositories = cursor.fetchall()
             cursor.close()
+
             return [
                 {
                     "repo": repo_data[0],
