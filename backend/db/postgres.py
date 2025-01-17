@@ -1,54 +1,47 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-import backoff
 from core.settings import settings
 from db.abc_db import AbstractDatabase, AbstractRepoStorage
 from enums.enums import SqlQueries
-from psycopg2 import OperationalError, connect
-from psycopg2.extensions import connection
+from psycopg2 import OperationalError, pool
 
 
 """
 Два класса для работы с бд. Оба наследуются от своих абстрактных классов
 
-PostgresDatabase выполняет подключение к постгрес, а также
-обеспечивает переподключение в случае падения.
+PostgresDatabase выполняет подключение к постгрес
 
 PostgresRepoStorage работает с таблицей, где лежат репозитории,
 делает выборку топ100 репозиториев и возвращает их.
 
-get_postgres_connection() возвращает новое подключение к бд
-get_postgres() возвращает текущее подключение к бд
 """
 
 
 class PostgresDatabase(AbstractDatabase):
     def __init__(self):
-        self._connection: Optional[connection] = None
-
-    @backoff.on_exception(backoff.expo, OperationalError, max_tries=5)
-    def connect_to_db(self):
-        self._connection = connect(
-            host=settings.db_host,
-            port=settings.db_port,
+        self._db_pool = pool.SimpleConnectionPool(
+            minconn=1,
+            maxconn=10,
             user=settings.db_user,
             password=settings.db_pass,
-            database=settings.db_name,
+            host=settings.db_host,
+            port=settings.db_port,
+            database=settings.db_name
         )
 
-    def get_connection(self) -> connection:
-        if self._connection is None or self._connection.closed:
-            self.connect_to_db()
-        return self._connection
+    def get_connection(self):
+        return self._db_pool.getconn()
 
-    def close_connection(self):
-        if self._connection is not None:
-            self._connection.close()
+    def put_connection(self, conn):
+        self._db_pool.putconn(conn)
+
+    def close_all_connections(self):
+        self._db_pool.closeall()
 
 
 class PostgresRepoStorage(AbstractRepoStorage):
-    def __init__(self, db: AbstractDatabase):
+    def __init__(self, db: PostgresDatabase):
         self._db = db
         self.sql_queries = SqlQueries
 
@@ -76,13 +69,11 @@ class PostgresRepoStorage(AbstractRepoStorage):
         except Exception as e:
             logging.error(f"Error in get_top100: {e}")
             raise
+        finally:
+            self._db.put_connection(connection)
 
 
 postgres_instance = PostgresDatabase()
-
-
-def get_postgres_connection() -> AbstractDatabase:
-    return PostgresDatabase()
 
 
 def get_postgres() -> AbstractDatabase:

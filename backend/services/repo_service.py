@@ -4,7 +4,7 @@ from typing import Dict, List, Set, Tuple
 import aiohttp
 from core.settings import settings
 from db.abc_db import AbstractDatabase, AbstractRepoStorage
-from db.postgres import PostgresRepoStorage, get_postgres_connection
+from db.postgres import PostgresRepoStorage, get_postgres
 from enums.enums import GitHubUrls
 from exceptions.repo_service_exceptions import RepoServiceExceptions
 from fastapi import Depends
@@ -105,7 +105,7 @@ class RepoService:
 
 
 def get_repo_service(
-    db: AbstractDatabase = Depends(get_postgres_connection),
+    db: AbstractDatabase = Depends(get_postgres),
 ) -> RepoService:
     storage = PostgresRepoStorage(db)
     return RepoService(storage)

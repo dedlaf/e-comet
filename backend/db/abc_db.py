@@ -19,15 +19,7 @@ AbstractRepoStorage нужен для реализации работы c таб
 
 class AbstractDatabase(ABC):
     @abstractmethod
-    def connect_to_db(self):
-        pass
-
-    @abstractmethod
     def get_connection(self) -> connection:
-        pass
-
-    @abstractmethod
-    def close_connection(self):
         pass
 
 

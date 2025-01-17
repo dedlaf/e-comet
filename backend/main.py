@@ -16,12 +16,10 @@ from fastapi.responses import ORJSONResponse
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    postgres_instance.connect_to_db()
     try:
         yield
     finally:
-        postgres_instance.close_connection()
-
+        postgres_instance.close_all_connections()
 
 app = FastAPI(
     title=settings.project_name,
