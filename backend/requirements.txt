@@ -1,0 +1,7 @@
+psycopg2-binary==2.9.9
+pydantic-settings==2.7.1
+backoff==2.2.1
+fastapi==0.115.6
+aiohttp==3.11.11
+uvicorn==0.34.0
+orjson==3.10.14
