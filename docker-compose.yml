@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: fastapi_backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_NAME:
+      DB_USER:
+      DB_PASS:
+      DB_HOST:
+      DB_PORT:
+      GH_AUTH_TOKEN:
