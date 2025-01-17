@@ -4,7 +4,7 @@ import backoff
 from core.settings import settings
 from db.abc_db import StorageHandler
 from enums.enums import SQLQueries
-from psycopg2 import DatabaseError, InterfaceError, OperationalError, connect
+from psycopg2 import DatabaseError, InterfaceError, OperationalError, pool
 
 """
 Выглядит страшно, но на самом деле логика довольно простая.
@@ -17,42 +17,70 @@ from psycopg2 import DatabaseError, InterfaceError, OperationalError, connect
 
 class PostgresHandler(StorageHandler):
     def __init__(self, sql_queries=SQLQueries) -> None:
-        self.db = self.__get_postgres()
+        self.__create_connection_pool()
         self.sql_queries = sql_queries
+
+    def __create_connection_pool(self):
+        self.db_pool = pool.SimpleConnectionPool(
+            minconn=1,
+            maxconn=10,
+            user=settings.db_user,
+            password=settings.db_pass,
+            host=settings.db_host,
+            port=settings.db_port,
+            database=settings.db_name
+        )
 
     @backoff.on_exception(backoff.expo, OperationalError, max_tries=10, max_time=60)
     def __get_postgres(self):
-        return connect(
-            host=settings.db_host,
-            port=settings.db_port,
-            user=settings.db_user,
-            password=settings.db_pass,
-            database=settings.db_name,
-        )
+        if self.db_pool.closed:
+            self.__create_connection_pool()
+        return self.db_pool.getconn()
 
     def __execute_query(self, query, params):
-        with self.db.cursor() as cursor:
-            cursor.execute(query, params)
-            result = cursor.fetchall()
-            self.db.commit()
+        conn = self.__get_postgres()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                result = cursor.fetchall()
+                conn.commit()
             return result
+        except Exception as e:
+            logging.error(f"Error executing query: {e}")
+            raise
+        finally:
+            self.db_pool.putconn(conn)
 
     def __execute_update(self, query, params):
-        with self.db.cursor() as cursor:
-            cursor.execute(query, params)
-            rowcount = cursor.rowcount
-            self.db.commit()
+        conn = self.__get_postgres()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                rowcount = cursor.rowcount
+                conn.commit()
             return rowcount
+        except Exception as e:
+            logging.error(f"Error executing update: {e}")
+            raise
+        finally:
+            self.db_pool.putconn(conn)
 
     def __execute_simple(self, query, params):
-        with self.db.cursor() as cursor:
-            cursor.execute(query, params)
-            self.db.commit()
+        conn = self.__get_postgres()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                conn.commit()
+        except Exception as e:
+            logging.error(f"Error executing statement: {e}")
+            raise
+        finally:
+            self.db_pool.putconn(conn)
 
     def __reconnect(self):
         logging.info("Reconnecting to the database...")
-        self.db.close()
-        self.db = self.__get_postgres()
+        self.db_pool.closeall()
+        self.__create_connection_pool()
         logging.info("Reconnection successful.")
 
     def _execute_with_reconnect(self, func, query, params):
@@ -68,11 +96,9 @@ class PostgresHandler(StorageHandler):
                 raise
         except DatabaseError as db_error:
             logging.error(f"Database error occurred: {db_error}")
-            self.db.rollback()
             raise
         except Exception as e:
             logging.error(f"An unexpected error occurred: {e}")
-            self.db.rollback()
             raise
 
     @backoff.on_exception(backoff.expo, (InterfaceError, OperationalError), max_tries=5)
