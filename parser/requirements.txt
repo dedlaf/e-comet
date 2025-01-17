@@ -1,0 +1,5 @@
+psycopg2-binary==2.9.9
+requests==2.32.3
+pydantic-settings==2.7.1
+more-itertools==10.5.0
+backoff==2.2.1
